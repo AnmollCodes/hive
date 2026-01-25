@@ -32,6 +32,26 @@ if ! command -v python &> /dev/null && ! command -v python3 &> /dev/null; then
     exit 1
 fi
 
+# Detect Windows "App Execution Aliases" (fake python.exe)
+if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "win32" ]]; then
+    # Capture stderr to check for the store message
+    PYTHON_CHECK_ERR=$(python --version 2>&1 >/dev/null || true)
+    
+    if [[ "$PYTHON_CHECK_ERR" == *"Microsoft Store"* ]]; then
+        echo -e "${RED}Error: Windows 'App Execution Aliases' are intercepting Python.${NC}"
+        echo ""
+        echo "Windows defaults to a fake 'python.exe' that redirects to the Microsoft Store."
+        echo ""
+        echo "SOLUTION:"
+        echo "1. Open Windows Settings"
+        echo "2. Search for 'Manage app execution aliases'"
+        echo "3. Turn OFF the toggles for 'python.exe' and 'python3.exe'"
+        echo ""
+        echo "Alternatively, try running this script with the 'py' launcher if installed."
+        exit 1
+    fi
+fi
+
 # Use python3 if available, otherwise python
 PYTHON_CMD="python3"
 if ! command -v python3 &> /dev/null; then

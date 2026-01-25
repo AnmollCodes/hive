@@ -208,6 +208,19 @@ pip uninstall -y framework tools
 ./scripts/setup-python.sh
 ```
 
+### "Python was not found..." (Windows Store Redirect)
+
+**Symptom:** Running python opens the Microsoft Store or says "Python was not found...".
+
+**Cause:** Windows 10/11 "App Execution Aliases" enable fake `python.exe` and `python3.exe` commands by default.
+
+**Solution:**
+1. Open **Windows Settings**.
+2. Search for **"Manage app execution aliases"**.
+3. Toggle **OFF** all entries for `python.exe` and `python3.exe`.
+4. Re-run `scripts/setup-python.sh` or use the `py` launcher.
+
+
 ## Package Structure
 
 The Hive framework consists of three Python packages:
