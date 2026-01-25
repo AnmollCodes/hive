@@ -37,35 +37,88 @@ def register_tools(mcp: FastMCP) -> None:
             # Use session dir root for relative path calculations
             session_root = os.path.join(WORKSPACES_DIR, workspace_id, agent_id, session_id)
 
+            # Optimization constants
+            IGNORED_DIRS = {
+                "node_modules", ".git", "__pycache__", ".venv", "venv", 
+                "dist", "build", ".pytest_cache", ".mypy_cache"
+            }
+            
+            BINARY_EXTENSIONS = {
+                # Code/Data
+                ".pyc", ".pyo", ".pyd", ".class", ".o", ".so", ".dll", ".exe", ".dylib", 
+                ".db", ".sqlite", ".sqlite3",
+                # Archives
+                ".zip", ".tar", ".gz", ".7z", ".rar", ".whl",
+                # Media
+                ".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico", ".svg",
+                ".mp3", ".mp4", ".mov", ".avi",
+                ".pdf", ".docx", ".xlsx",
+                # Fonts
+                ".ttf", ".otf", ".woff", ".woff2"
+            }
+            
+            MAX_MATCHES = 1000
+            
             matches = []
+            
+            # Helper to process a single file
+            def process_file(full_path):
+                # Binary Check 1: Extension
+                _, ext = os.path.splitext(full_path)
+                if ext.lower() in BINARY_EXTENSIONS:
+                    return
 
-            if os.path.isfile(secure_path):
-                files = [secure_path]
-            elif recursive:
-                files = []
-                for root, _, filenames in os.walk(secure_path):
-                    for filename in filenames:
-                        files.append(os.path.join(root, filename))
-            else:
-                files = [os.path.join(secure_path, f) for f in os.listdir(secure_path) if os.path.isfile(os.path.join(secure_path, f))]
-
-            for file_path in files:
                 # Calculate relative path for display
-                display_path = os.path.relpath(file_path, session_root)
                 try:
-                    with open(file_path, "r", encoding="utf-8") as f:
+                    display_path = os.path.relpath(full_path, session_root)
+                except ValueError: # Path on different drive
+                    display_path = full_path
+
+                try:
+                    with open(full_path, "r", encoding="utf-8") as f:
                         for i, line in enumerate(f, 1):
+                            if len(matches) >= MAX_MATCHES:
+                                return "STOP"
+                                
                             if regex.search(line):
                                 matches.append({
                                     "file": display_path,
                                     "line_number": i,
                                     "line_content": line.strip()
                                 })
-                except (UnicodeDecodeError, PermissionError):
-                    # As per README: Skips the files that cannot be decoded or have permission errors
-                    continue
+                except (UnicodeDecodeError, PermissionError, OSError):
+                    # Skip binary files detected during read or locked files
+                    pass
 
-            return {
+            # Search logic
+            if os.path.isfile(secure_path):
+                process_file(secure_path)
+                
+            elif recursive:
+                # Optimized walk with pruning
+                for root, dirs, filenames in os.walk(secure_path):
+                    if len(matches) >= MAX_MATCHES:
+                        break
+
+                    # 1. Tree Pruning (modify dirs in-place)
+                    dirs[:] = [d for d in dirs if d not in IGNORED_DIRS]
+
+                    for filename in filenames:
+                        if len(matches) >= MAX_MATCHES:
+                            break
+                        
+                        full_path = os.path.join(root, filename)
+                        if process_file(full_path) == "STOP":
+                            break
+            else:
+                # Non-recursive directory list
+                for item in os.listdir(secure_path):
+                    full_path = os.path.join(secure_path, item)
+                    if os.path.isfile(full_path):
+                        if process_file(full_path) == "STOP":
+                            break
+
+            result = {
                 "success": True,
                 "pattern": pattern,
                 "path": path,
@@ -73,6 +126,11 @@ def register_tools(mcp: FastMCP) -> None:
                 "matches": matches,
                 "total_matches": len(matches)
             }
+            
+            if len(matches) >= MAX_MATCHES:
+                result["warning"] = f"Stopped early after reaching MAX_MATCHES={MAX_MATCHES}"
+
+            return result
 
         # 2. Specific Exception Handling (Issue #55 Requirements)
         except FileNotFoundError:
