@@ -155,7 +155,7 @@ def register_tools(mcp: FastMCP) -> None:
         except PermissionError:
             return {"error": f"Permission denied: {file_path}"}
         except EmptyFileError:
-            return {"error": f"PDF file is empty: {path.name}"}
+            return {"error": f"PDF file is empty: {file_path}"}
         except PdfStreamError as e:
             return {"error": f"PDF stream error: {str(e)}"}
         except ParseError as e:

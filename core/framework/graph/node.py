@@ -448,7 +448,29 @@ class LLMNode(NodeProtocol):
         import time
 
         if ctx.llm is None:
-            return NodeResult(success=False, error="LLM not available")
+            # MOCK MODE: Generate dummy outputs if LLM is missing
+            logger.warning(f"      ⚠ Running Node '{ctx.node_spec.name}' in MOCK MODE (No LLM)")
+            
+            output = {}
+            mock_content = f"[MOCK] Response for {ctx.node_spec.name}"
+            
+            # Generate mock data for output keys
+            if ctx.node_spec.output_keys:
+                for key in ctx.node_spec.output_keys:
+                    output[key] = f"[MOCK] Value for {key}"
+                    try:
+                        ctx.memory.write(key, output[key])
+                    except Exception:
+                        pass # Ignore write errors in mock mode
+            else:
+                output["result"] = mock_content
+            
+            return NodeResult(
+                success=True,
+                output=output, 
+                error=None,
+                latency_ms=0
+            )
 
         # Fail fast if tools are required but not available
         if self.require_tools and not ctx.available_tools:

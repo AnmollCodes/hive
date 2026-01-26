@@ -104,3 +104,23 @@ class TestPdfReadTool:
             "PDF stream error"
         ])
 
+    def test_read_valid_pdf(self, pdf_read_fn, tmp_path: Path):
+        """Reading a valid PDF returns content."""
+        # Create a simple valid PDF using pypdf to ensure it's structurally correct
+        from pypdf import PdfWriter, PageObject
+        
+        valid_pdf = tmp_path / "valid.pdf"
+        writer = PdfWriter()
+        page = PageObject.create_blank_page(width=100, height=100)
+        writer.add_page(page)
+        
+        with open(valid_pdf, "wb") as f:
+            writer.write(f)
+            
+        result = pdf_read_fn(file_path=str(valid_pdf))
+        
+        assert "error" not in result
+        assert result["path"] == str(valid_pdf)
+        assert result["total_pages"] == 1
+        assert "content" in result
+
